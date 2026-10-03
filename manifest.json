@@ -1,0 +1,26 @@
+{
+  "id": "com.om.phosphorscan",
+  "name": "Phosphor // Scan",
+  "version": "1.0.0",
+  "main": "index.html",
+  "host": [
+    {
+      "app": "PS",
+      "minVersion": "24.2.0"
+    }
+  ],
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "phosphorPanel",
+      "label": "Phosphor // Scan",
+      "minimumSize": { "width": 320, "height": 480 },
+      "maximumSize": { "width": 480, "height": 1200 },
+      "preferredDockedSize": { "width": 340, "height": 700 }
+    }
+  ],
+  "requiredPermissions": {
+    "localFileSystem": "fullAccess"
+  },
+  "manifestVersion": 5
+}

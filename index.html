@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #1a1a1a;
+    --surface: #242424;
+    --surface2: #2c2c2c;
+    --border: #383838;
+    --ink: #e8e8e8;
+    --dim: #888;
+    --accent: #33f0ff;
+    --accent2: #ff3ec8;
+    --green: #4ade80;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* Global button reset — strips any native appearance/focus-ring chrome
+     the webview might apply by default, so every button in this plugin
+     renders exactly as its own class styles it, nothing borrowed. */
+  button {
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
+    font: inherit;
+  }
+  button:focus,
+  button:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 11px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .header {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .logo-sub {
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  /* Dot-grid header decoration — uses CSS background pattern, no image needed */
+  .header-grid {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+    background-size: 10px 10px;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .header-content { position: relative; z-index: 1; }
+
+  /* ── Tabs — same chip pattern as .mode-btn, so they wrap to a second
+     row instead of clipping when the panel gets narrow ──────────────── */
+  .tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  /* Wireframe (outline-only) when inactive — visually distinct from the
+     solid-filled mode-btn chips, so tabs read as navigation rather than
+     action buttons. Stays a single row always: text shrinks via ellipsis
+     rather than wrapping to a second row. */
+  .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    padding: 8px 2px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.12s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tab:hover { color: var(--ink); border-color: #777; }
+  .tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+    font-weight: 700;
+  }
+
+  /* ── Tab panels ──────────────────────────────────────── */
+  .panels {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .panels::-webkit-scrollbar { width: 4px; }
+  .panels::-webkit-scrollbar-track { background: var(--bg); }
+  .panels::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .panel { display: none; padding: 16px 16px 20px; }
+  .panel.active { display: block; }
+
+  /* ── Section headers ─────────────────────────────────── */
+  .section-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--dim);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+    margin-top: 18px;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  /* A section header with a small enable/disable toggle docked to the
+     right, instead of a full-width button spanning the panel. */
+  .section-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+    margin-top: 18px;
+  }
+  .section-label-row:first-child { margin-top: 0; }
+  .section-label-row .section-label {
+    padding-bottom: 0;
+    border-bottom: none;
+    margin-bottom: 0;
+    margin-top: 0;
+  }
+  .toggle-btn-mini {
+    flex: none;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: inherit;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.12s;
+  }
+  .toggle-btn-mini:hover { border-color: #777; color: var(--ink); }
+  .toggle-btn-mini.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+  }
+
+  /* ── Controls ────────────────────────────────────────── */
+  .control { margin-bottom: 20px; }
+  .control-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+  .control-label { color: var(--ink); font-size: 12px; }
+  .control-val {
+    color: var(--accent);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    min-width: 28px;
+    text-align: right;
+    /* Prevent native text-selection highlighting on double-click — the
+       selection box was rendering oddly against the dark background,
+       making the number look like it turned black or vanished. */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Sliders */
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 12px;
+    background: var(--surface2);
+    border-radius: 6px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.7);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.7);
+    cursor: pointer;
+    border: none;
+  }
+
+  /* Toggle */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 11px;
+  }
+  .toggle-label { color: var(--ink); font-size: 11px; }
+  .switch { display: inline-block; position: relative; width: 34px; height: 18px; flex-shrink: 0; }
+  .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .slider-toggle {
+    position: absolute; inset: 0;
+    background: #555;
+    border: 1px solid #666;
+    border-radius: 18px;
+    cursor: pointer;
+    transition: 0.15s;
+    pointer-events: none;
+  }
+  .slider-toggle:before {
+    content: "";
+    position: absolute;
+    width: 13px; height: 13px;
+    left: 2px; top: 2px;
+    background: #ddd;
+    border-radius: 50%;
+    transition: 0.15s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+  .switch input:checked + .slider-toggle { background: var(--accent); border-color: var(--accent); }
+  .switch input:checked + .slider-toggle:before {
+    transform: translateX(16px);
+    background: #000;
+  }
+
+  /* Select */
+  select.ctrl-select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* Mode chips — flex-wrap so they stack to two rows when panel is narrow */
+  .mode-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .mode-btn {
+    flex: 1 1 28%;
+    min-width: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 9px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.12s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mode-btn:hover { color: var(--ink); border-color: #555; }
+  .mode-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+    font-weight: 700;
+  }
+
+  /* Color ramp */
+  .ramp-preview {
+    height: 20px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    margin-bottom: 10px;
+  }
+  .ramp-stop-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .ramp-stop-row input[type="range"] { flex: 1; }
+  /* Defensive resets: eliminate any native button chrome (default
+     appearance, focus ring/outline) that could render as an unexpected
+     shape — these buttons should look exactly like what we style below,
+     nothing borrowed from the browser/webview's own button skin. */
+  .color-swatch-btn {
+    display: inline-block;
+    width: 40px;
+    height: 36px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.12s;
+    padding: 0;
+    user-select: none;
+  }
+  .color-swatch-btn:hover { border-color: #777; }
+  .color-swatch-btn:focus,
+  .color-swatch-btn:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+  .remove-stop {
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
+    width: 32px; height: 32px;
+    border: 2px solid var(--border);
+    background: none;
+    color: var(--dim);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+    padding: 0;
+  }
+  .remove-stop:hover { border-color: var(--accent2); color: var(--accent2); }
+  .remove-stop:focus { outline: none; }
+  .add-stop-btn {
+    width: 100%;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px dashed var(--border);
+    color: var(--dim);
+    background: none;
+    padding: 7px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 2px;
+    transition: 0.12s;
+  }
+  .add-stop-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Bg color row */
+  .bg-color-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .bg-hex {
+    font-size: 10px;
+    color: var(--dim);
+    font-family: monospace;
+  }
+
+  /* Swatch presets */
+  .swatches { display: flex; gap: 6px; margin-bottom: 14px; }
+  .swatch {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.12s, transform 0.12s;
+  }
+  .swatch:hover { border-color: #fff; transform: scale(1.15); }
+
+  /* Color popover */
+  .color-popover {
+    position: fixed;
+    z-index: 999;
+    background: #1e1e1e;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px;
+    width: 190px;
+    max-width: 190px;
+    min-width: 190px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  }
+  .color-popover.open { display: flex; }
+  .color-popover * { box-sizing: border-box; }
+  .color-popover .preview-swatch {
+    height: 28px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    width: 100%;
+  }
+  .color-popover .channel-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    width: 100%;
+  }
+  .color-popover .channel-row span {
+    width: 10px;
+    flex: none;
+    color: var(--dim);
+    font-weight: 700;
+  }
+  .color-popover .channel-row input[type="range"] {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+  .color-popover .channel-row input[type="number"] {
+    flex: none;
+    width: 36px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-size: 10px;
+    border-radius: 4px;
+    padding: 2px 4px;
+  }
+  .color-popover .hex-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    width: 100%;
+  }
+  .color-popover .hex-row span { flex: none; color: var(--dim); }
+  .color-popover .hex-row input[type="text"] {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-size: 10px;
+    border-radius: 4px;
+    padding: 5px 7px;
+    font-family: monospace;
+  }
+  .color-popover .close-btn {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    background: none;
+    padding: 6px;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%;
+    font-family: inherit;
+  }
+
+  /* ── Bottom bar ──────────────────────────────────────── */
+  .bottom-bar {
+    /* No fixed height — sizes to its content so it never clips or
+       overlaps as button sizes change. */
+    border-top: 1px solid var(--border);
+    padding: 10px 14px 12px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--surface);
+  }
+  .preview-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toggle-btn {
+    flex: 1;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 8px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.12s;
+  }
+  .toggle-btn:hover { border-color: #777; color: var(--ink); }
+  .toggle-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+    font-weight: 700;
+  }
+  .apply-btn {
+    flex: 1;
+    background: linear-gradient(90deg, var(--accent), #00c8d6);
+    border: none;
+    color: #000;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .apply-btn:hover { opacity: 0.85; }
+
+  .status-bar {
+    font-size: 9px;
+    color: var(--dim);
+    padding: 3px 14px 4px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    letter-spacing: 0.5px;
+    min-height: 18px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-grid"></div>
+    <div class="header-content">
+      <div class="logo">Phosphor // Scan</div>
+      <div class="logo-sub">dot-matrix display rig</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="render">Render</button>
+    <button class="tab" data-tab="tone">Tone</button>
+    <button class="tab" data-tab="color">Color</button>
+    <button class="tab" data-tab="fx">FX</button>
+  </div>
+
+  <div class="panels">
+
+    <!-- RENDER TAB -->
+    <div class="panel active" id="tab-render">
+      <div class="section-label">Mode</div>
+      <div class="mode-row">
+        <button class="mode-btn" data-mode="bars">Bars</button>
+        <button class="mode-btn" data-mode="ascii">ASCII</button>
+        <button class="mode-btn active" data-mode="dots">Dots</button>
+        <button class="mode-btn" data-mode="blocks">Blocks</button>
+        <button class="mode-btn" data-mode="lines">Lines</button>
+      </div>
+
+      <div class="control" id="asciiCharsetRow" style="display:none;">
+        <div class="control-row"><span class="control-label">Character set</span></div>
+        <select class="ctrl-select" id="asciiCharset">
+          <option value=" .:-=+*#%@">Standard ( .:-=+*#%@ )</option>
+          <option value=" .,:;ox%#@">Classic terminal</option>
+          <option value=" 01">Binary (0/1)</option>
+        </select>
+      </div>
+
+      <div class="section-label">Grid</div>
+
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Cell size</span>
+          <span class="control-val" id="cellSizeVal">13.5</span>
+        </div>
+        <input type="range" id="cellSize" min="3" max="100" value="13.5" step="0.5">
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Fill width</span>
+          <span class="control-val" id="fillWidthVal">50</span>
+        </div>
+        <input type="range" id="fillWidth" min="5" max="100" value="50">
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Grid jitter</span>
+          <span class="control-val" id="jitterVal">0</span>
+        </div>
+        <input type="range" id="jitter" min="0" max="100" value="0">
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Density dropout</span>
+          <span class="control-val" id="dropoutVal">0</span>
+        </div>
+        <input type="range" id="dropout" min="0" max="80" value="0">
+      </div>
+    </div>
+
+    <!-- TONE TAB -->
+    <div class="panel" id="tab-tone">
+      <div class="section-label">Levels</div>
+
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Brightness</span>
+          <span class="control-val" id="brightnessVal">100</span>
+        </div>
+        <input type="range" id="brightness" min="0" max="200" value="100">
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Contrast</span>
+          <span class="control-val" id="contrastVal">120</span>
+        </div>
+        <input type="range" id="contrast" min="50" max="250" value="120">
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Gamma</span>
+          <span class="control-val" id="gammaVal">1.00</span>
+        </div>
+        <input type="range" id="gamma" min="40" max="300" value="100">
+      </div>
+
+      <div class="section-label">Clipping</div>
+
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Black clip</span>
+          <span class="control-val" id="thresholdVal">8</span>
+        </div>
+        <input type="range" id="threshold" min="0" max="100" value="8">
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">White clip</span>
+          <span class="control-val" id="whiteClipVal">100</span>
+        </div>
+        <input type="range" id="whiteClip" min="50" max="100" value="100">
+      </div>
+
+      <div class="section-label-row">
+        <span class="section-label">Style</span>
+        <button class="toggle-btn-mini" id="invert" title="Invert Tone">Off</button>
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Posterize steps</span>
+          <span class="control-val" id="posterizeVal">0</span>
+        </div>
+        <input type="range" id="posterize" min="0" max="16" value="0">
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Posterize style</span>
+        </div>
+        <div class="mode-row">
+          <button class="mode-btn active" data-posterizestyle="uniform" title="Uniform — flat bands">Uniform</button>
+          <button class="mode-btn" data-posterizestyle="bayer" title="Ordered / Bayer — textured">Bayer</button>
+          <button class="mode-btn" data-posterizestyle="diffuse" title="Error Diffusion — smoother">Diffuse</button>
+          <button class="mode-btn" data-posterizestyle="perchannel" title="Per-Channel — colorful banding">Channel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLOR TAB -->
+    <div class="panel" id="tab-color">
+      <div class="section-label">Background</div>
+      <div class="bg-color-row">
+        <div class="color-swatch-btn" id="bgColorSwatch" style="background:#060a06; width:36px; height:30px;"></div>
+        <span class="bg-hex" id="bgColorHexLabel">#060A06</span>
+      </div>
+
+      <div class="section-label">Color Source</div>
+      <div class="mode-row">
+        <button class="mode-btn" data-colormode="ramp">Ramp</button>
+        <button class="mode-btn active" data-colormode="original">Original</button>
+      </div>
+
+      <div id="rampEditor" style="display:none;">
+        <div class="section-label">Phosphor Ramp</div>
+        <div class="ramp-preview" id="rampPreview"></div>
+
+        <div class="swatches">
+          <div class="swatch" style="background:#5fff5a;" data-preset="green" title="Green P1"></div>
+          <div class="swatch" style="background:#ffb238;" data-preset="amber" title="Amber P3"></div>
+          <div class="swatch" style="background:#33f0ff;" data-preset="cyan" title="Cyan"></div>
+          <div class="swatch" style="background:#ff3ec8;" data-preset="magenta" title="Magenta"></div>
+          <div class="swatch" style="background:#ffffff;" data-preset="white" title="White P4"></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#0c0420,#ff3ec8,#33f0ff);" data-preset="vapor" title="Vaporwave"></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#000020,#7f00ff,#ff0040,#ff9900,#ffff00);" data-preset="thermal" title="Thermal"></div>
+        </div>
+
+        <div id="rampStops"></div>
+        <button class="add-stop-btn" id="addStopBtn">+ Add color stop</button>
+      </div>
+
+      <div id="originalColorNote" style="display:block; font-size:11px; color:var(--dim); line-height:1.5; padding: 4px 2px;">
+        Each cell samples its color straight from the photo underneath — brightness/contrast in the Tone tab still shapes the grid, but hue comes from the source image.
+      </div>
+    </div>
+
+    <!-- FX TAB -->
+    <div class="panel" id="tab-fx">
+      <div class="section-label">Glow / Bloom</div>
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Amount</span>
+          <span class="control-val" id="glowAmountVal">55</span>
+        </div>
+        <input type="range" id="glowAmount" min="0" max="100" value="55">
+      </div>
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Spread</span>
+          <span class="control-val" id="glowSpreadVal">8</span>
+        </div>
+        <input type="range" id="glowSpread" min="0" max="40" value="8">
+      </div>
+
+      <div class="section-label-row">
+        <span class="section-label">Scanlines</span>
+        <button class="toggle-btn-mini" id="scanEnable" title="Enable Scanlines">Off</button>
+      </div>
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Intensity</span>
+          <span class="control-val" id="scanIntensityVal">35</span>
+        </div>
+        <input type="range" id="scanIntensity" min="0" max="100" value="35">
+      </div>
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Spacing</span>
+          <span class="control-val" id="scanSpacingVal">3</span>
+        </div>
+        <input type="range" id="scanSpacing" min="1" max="12" value="3">
+      </div>
+
+      <div class="section-label-row">
+        <span class="section-label">Chromatic Aberration</span>
+        <button class="toggle-btn-mini" id="caEnable" title="Enable Chromatic Aberration">Off</button>
+      </div>
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">CA shift</span>
+          <span class="control-val" id="caShiftVal">3</span>
+        </div>
+        <input type="range" id="caShift" min="0" max="15" value="3">
+      </div>
+
+      <div class="section-label-row">
+        <span class="section-label">Static Noise</span>
+        <button class="toggle-btn-mini" id="noiseEnable" title="Enable Static Noise">Off</button>
+      </div>
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Noise amount</span>
+          <span class="control-val" id="noiseAmountVal">10</span>
+        </div>
+        <input type="range" id="noiseAmount" min="0" max="60" value="10">
+      </div>
+
+      <div class="section-label-row">
+        <span class="section-label">Tracking Jitter</span>
+        <button class="toggle-btn-mini" id="trackingEnable" title="Enable Tracking Jitter">Off</button>
+      </div>
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Jitter amount</span>
+          <span class="control-val" id="trackingAmountVal">4</span>
+        </div>
+        <input type="range" id="trackingAmount" min="0" max="20" value="4">
+      </div>
+
+      <div class="section-label-row">
+        <span class="section-label">Screen Curvature</span>
+        <button class="toggle-btn-mini" id="curveEnable" title="Enable Screen Curvature">Off</button>
+      </div>
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Curvature amount</span>
+          <span class="control-val" id="curveAmountVal">15</span>
+        </div>
+        <input type="range" id="curveAmount" min="0" max="50" value="15">
+      </div>
+
+      <div class="section-label">Vignette</div>
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Darkness</span>
+          <span class="control-val" id="vignetteVal">0</span>
+        </div>
+        <input type="range" id="vignette" min="0" max="100" value="0">
+      </div>
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Reach</span>
+          <span class="control-val" id="vignetteReachVal">70</span>
+        </div>
+        <input type="range" id="vignetteReach" min="30" max="120" value="70">
+      </div>
+
+      <div class="section-label-row">
+        <span class="section-label">Border Bezel</span>
+        <button class="toggle-btn-mini" id="bezelEnable" title="Enable Border Bezel">Off</button>
+      </div>
+      <div class="control">
+        <div class="control-row">
+          <span class="control-label">Bezel width</span>
+          <span class="control-val" id="bezelWidthVal">20</span>
+        </div>
+        <input type="range" id="bezelWidth" min="4" max="60" value="20">
+      </div>
+    </div>
+
+  </div><!-- /panels -->
+
+  <div class="status-bar" id="status"></div>
+
+  <div class="bottom-bar">
+    <div class="preview-row">
+      <button class="toggle-btn active" id="livePreviewEnable">Live preview</button>
+      <button class="toggle-btn active" id="fastPreviewEnable">Fast mode</button>
+    </div>
+    <button class="apply-btn" id="applyBtn">Apply to New Layer</button>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>
