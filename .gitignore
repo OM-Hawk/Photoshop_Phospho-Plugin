@@ -1,0 +1,10 @@
+# Rust/cargo build output
+wsm-core/target/
+wsm-core/pkg/
+
+# Node
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
